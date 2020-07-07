@@ -54,7 +54,11 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
 
         /// Handle getData
         else if (call.method.elementsEqual("getData")){
-            getData(call: call, result: result)
+            if #available(iOS 9.0, *) {
+                getData(call: call, result: result)
+            } else {
+                // Fallback on earlier versions
+            }
         }
     }
 
@@ -82,6 +86,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         }
     }
 
+    @available(iOS 9.0, *)
     func getData(call: FlutterMethodCall, result: @escaping FlutterResult) {
         let arguments = call.arguments as? NSDictionary
         let dataTypeKey = (arguments?["dataTypeKey"] as? String) ?? "DEFAULT"
@@ -103,15 +108,22 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
                 result(FlutterError(code: "FlutterHealth", message: "Results are null", details: error))
                 return
             }
+            
+            let formatter = DateFormatter()
+            // initially set the format based on your datepicker date / server String
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
             if (samples != nil){
                 result(samples.map { sample -> NSDictionary in
                     let unit = self.unitLookUp(key: dataTypeKey)
                     
                     return [
+                        "unit": unit.unitString,
+                        "source": sample.sourceRevision.source.name,
+                        "device": sample.device != nil ? sample.device!.name! : "",
                         "value": sample.quantity.doubleValue(for: unit),
-                        "date_from": Int(sample.startDate.timeIntervalSince1970 * 1000),
-                        "date_to": Int(sample.endDate.timeIntervalSince1970 * 1000),
+                        "start_date": formatter.string(from: Date(timeIntervalSince1970: startDate.doubleValue / 1000)),
+                        "end_date": formatter.string(from: Date(timeIntervalSince1970: endDate.doubleValue / 1000)),
                     ]
                 })
             }
